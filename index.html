@@ -634,12 +634,45 @@ function saveRecipe(evt, existingId) {
 }
 
 /* ---------- manage common/suggested items ---------- */
+let manageBulkMode = false;
 function openManageCommon() {
+  manageBulkMode = false;
   renderManageModal();
   openModal('manageModal');
 }
+function toggleBulkMode(on) { manageBulkMode = on; renderManageModal(); }
+function saveBulkCommon() {
+  const ta = document.getElementById('bulkCommonText');
+  const seen = new Set();
+  commonItems = ta.value.split('\n')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .filter(n => { const k = n.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+  persist();
+  manageBulkMode = false;
+  renderManageModal();
+  renderCommonDatalist();
+  renderShopping();
+}
 function renderManageModal() {
-  document.getElementById('manageSheet').innerHTML = `
+  const sheet = document.getElementById('manageSheet');
+  if (manageBulkMode) {
+    sheet.innerHTML = `
+      <div class="sheet-content">
+        <div class="sheet-head">
+          <h2>Suggested items</h2>
+          <button class="close" onclick="closeModal('manageModal')">✕</button>
+        </div>
+        <p style="color:var(--muted);font-size:12.5px;margin:0 0 8px">One item per line, already in the order you want (top of the list = start of your shop). Saving replaces the whole list.</p>
+        <textarea id="bulkCommonText" style="width:100%;min-height:280px;border:1px solid var(--line);border-radius:5px;padding:9px 11px;background:var(--bg);font:inherit;resize:vertical">${escapeHtml(commonItems.join('\n'))}</textarea>
+        <div class="sheet-actions">
+          <button class="secondary" onclick="toggleBulkMode(false)">Cancel</button>
+          <button class="primary" onclick="saveBulkCommon()">Save list</button>
+        </div>
+      </div>`;
+    return;
+  }
+  sheet.innerHTML = `
     <div class="sheet-content">
       <div class="sheet-head">
         <h2>Suggested items</h2>
@@ -659,6 +692,7 @@ function renderManageModal() {
         <input type="text" id="newCommonName" placeholder="Add a suggestion…" onkeydown="if(event.key==='Enter'){event.preventDefault();addCommon();}">
         <button class="primary" onclick="addCommon()">Add</button>
       </div>
+      <button class="link-btn" style="margin-top:10px" onclick="toggleBulkMode(true)">Bulk edit as text</button>
     </div>`;
 }
 function addCommon() {
