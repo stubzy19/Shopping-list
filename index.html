@@ -123,7 +123,6 @@ form.editor{display:flex;flex-direction:column;gap:12px}
 <div class="app">
   <header>
     <h1>Shopping List</h1>
-    <p>One list, kept in sync between the two of us.</p>
   </header>
   <div class="notice" id="syncNotice"></div>
 
@@ -331,9 +330,9 @@ function renderHHGate(mode, code) {
 function renderNotice() {
   const el = document.getElementById('syncNotice');
   if (householdCode) {
-    el.innerHTML = `<b>Synced.</b> This list updates live on any device using the same household code: <code onclick="copyHHCode('${householdCode}')" title="Click to copy">${householdCode}</code> — enter it on your wife's device once to connect it.`;
+    el.innerHTML = `Synced · <code onclick="copyHHCode('${householdCode}')" title="Click to copy">${householdCode}</code>`;
   } else {
-    el.innerHTML = `<b>Not yet connected.</b> Set up sharing above to keep this list in sync with your wife's device.`;
+    el.innerHTML = `Not yet connected`;
   }
 }
 
