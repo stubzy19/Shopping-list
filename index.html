@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Shopping List</title>
+<style>
+:root {
+  --bg:#eef1f5; --card:#ffffff; --ink:#181c24; --muted:#6b7280; --line:#dde1e8;
+  --accent:#1c7a4f; --accent-ink:#fff; --accent2:#dcf2e4; --danger:#b3261e; --ok:#2f6c53;
+  --r:6px; --shadow:0 1px 2px rgba(15,23,42,.05);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",ui-sans-serif,system-ui,sans-serif}
+button,input,textarea{font:inherit} button{cursor:pointer}
+/* Custom +/- steppers are used everywhere numbers are edited, so the browser's native
+   spin arrows just eat width and clip 3-digit values (this is what was cutting off
+   "500" etc. on desktop) — turn them off everywhere. */
+input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield;appearance:textfield}
+.app{max-width:980px;margin:auto;padding:22px 16px 60px}
+header{margin:0 0 6px}
+header h1{margin:0;font-size:26px;letter-spacing:-.02em}
+header p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.notice{background:var(--accent2);border:1px solid #b7e3c6;border-radius:5px;padding:10px 13px;font-size:12.5px;color:#155235;margin:14px 0 18px;line-height:1.5}
+.layout{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;align-items:start}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:16px}
+.panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.panel-head h2{margin:0;font-size:17px}
+.link-btn{border:0;background:none;color:var(--accent);font-weight:700;font-size:12.5px;padding:4px 0}
+.primary,.secondary,.ghost{border-radius:5px;padding:9px 12px;font-weight:700;font-size:13px}
+.primary{border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink)}
+.secondary{border:1px solid var(--line);background:transparent;color:var(--ink)}
+.ghost{border:0;background:transparent;color:var(--muted)}
+
+.quick-add{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.quick-add input[type=text],.quick-add input[type=number]{border:1px solid var(--line);border-radius:5px;padding:9px 10px;background:var(--bg)}
+.quick-add input[list]{flex:1;min-width:120px}
+.quick-add input[type=number]{width:58px}
+.quick-add input.unit{width:64px}
+
+.item-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.item-row:last-child{border-bottom:0}
+.item-row input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);flex:none}
+.item-name{flex:1;min-width:0;text-align:right}
+.item-name b{display:block;font-size:14px;font-weight:600;overflow-wrap:anywhere}
+.item-name small{color:var(--muted);font-size:11.5px}
+.item-row.checked .item-name b{text-decoration:line-through;color:#9aa0aa}
+.qty-stepper{display:flex;align-items:center;gap:4px;flex:none}
+.qty-stepper button{border:1px solid var(--line);background:var(--bg);width:24px;height:24px;border-radius:4px;font-weight:900;line-height:1;padding:0}
+.qty-stepper input{width:50px;text-align:center;border:1px solid var(--line);border-radius:4px;padding:4px 2px;background:#fff}
+.unit-input{width:64px;border:1px solid var(--line);border-radius:4px;padding:5px 6px;background:#fff;flex:none}
+.remove-btn{border:0;background:transparent;color:var(--danger);font-size:16px;padding:4px 2px;flex:none}
+.checked-toggle{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.empty{color:var(--muted);font-size:13px;padding:14px 0;text-align:center}
+
+.week-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.week-row:last-child{border-bottom:0}
+.week-day{width:88px;flex:none;font-weight:700;font-size:13.5px}
+.week-recipe{flex:1;min-width:0;font-size:13.5px;overflow-wrap:anywhere}
+.week-empty{color:var(--muted);font-style:italic}
+.week-empty-all{color:var(--muted);font-size:13px;padding:8px 0;text-align:center}
+
+.recipe-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 0;border-bottom:1px solid var(--line)}
+.recipe-row:last-child{border-bottom:0}
+.recipe-row button.recipe-name{border:0;background:none;text-align:left;font-size:14.5px;font-weight:700;color:var(--ink);padding:2px 0;flex:1}
+.recipe-row button.recipe-name:hover{color:var(--accent)}
+.recipe-row small{display:block;color:var(--muted);font-size:11.5px;font-weight:400}
+.recipe-row .del{border:0;background:none;color:var(--muted);font-size:15px}
+.row-edit{border:0;background:none;color:var(--accent);font-weight:700;font-size:12px;padding:4px 6px;flex:none}
+
+.day-add{position:relative;flex:none}
+.day-chooser-box{position:absolute;bottom:calc(100% + 8px);left:0;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px;box-shadow:0 6px 20px rgba(0,0,0,.15);flex-direction:column;gap:6px;z-index:6;min-width:220px}
+.day-chips{display:flex;flex-wrap:wrap;gap:6px}
+.day-chip{border:1px solid var(--line);background:var(--bg);border-radius:4px;padding:6px 9px;font-size:12px;font-weight:700}
+.day-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.day-hint{color:var(--ok);font-size:11.5px;min-height:14px;display:block}
+
+.modal{position:fixed;inset:0;background:rgba(15,17,22,.55);display:none;align-items:flex-end;justify-content:center;z-index:20}
+.modal.open{display:flex}
+.sheet{width:min(560px,100%);max-height:min(92vh,92dvh);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--card);border-radius:10px 10px 0 0;box-shadow:0 -10px 50px rgba(0,0,0,.25)}
+.sheet-content{padding:0 18px 18px}
+.sheet-head{position:sticky;top:0;z-index:2;background:var(--card);display:flex;justify-content:space-between;align-items:start;gap:12px;margin:0 -18px 14px;padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+.sheet-head h2{margin:0;font-size:20px}
+.close{border:1px solid var(--line);background:var(--card);width:32px;height:32px;border-radius:50%;font-size:15px;flex:none}
+.code-box{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:19px;letter-spacing:.5px;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:14px;text-align:center;margin:10px 0;word-break:break-all;cursor:pointer}
+.notice code{cursor:pointer;background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;font-weight:700}
+.sheet-actions{position:sticky;bottom:0;z-index:2;background:var(--card);display:flex;gap:10px;justify-content:flex-end;margin:16px -18px 0;padding:12px 18px 18px;border-top:1px solid var(--line)}
+
+.pick-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.pick-row:last-child{border-bottom:0}
+.pick-row input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);flex:none}
+.pick-row .pname{flex:1;font-size:14px}
+.pick-row input.pqty{width:56px;border:1px solid var(--line);border-radius:4px;padding:5px;background:var(--bg)}
+.pick-row input.punit{width:56px;border:1px solid var(--line);border-radius:4px;padding:5px;background:var(--bg)}
+
+form.editor{display:flex;flex-direction:column;gap:12px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.field input,.field textarea{border:1px solid var(--line);border-radius:5px;padding:9px 11px;background:var(--bg);width:100%}
+.field textarea{min-height:60px;resize:vertical}
+.ing-row{display:grid;grid-template-columns:1.6fr .7fr .8fr auto;gap:6px;margin-bottom:6px}
+.ing-row input{border:1px solid var(--line);border-radius:4px;padding:7px 8px;background:var(--bg)}
+.add-row-btn{border:1px dashed var(--line);background:transparent;border-radius:5px;padding:8px;font-weight:700;color:var(--accent);font-size:13px}
+
+.manage-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}
+.manage-row:last-child{border-bottom:0}
+.manage-name{flex:1}
+.reorder-btns{display:flex;gap:2px;flex:none}
+.reorder-btns button{font-size:11px;padding:4px 5px}
+.reorder-btns button:disabled{opacity:.25;cursor:default}
+.manage-add{display:flex;gap:8px;margin-top:12px}
+.manage-add input{flex:1;border:1px solid var(--line);border-radius:5px;padding:8px 10px;background:var(--bg)}
+
+@media(max-width:760px){
+  .layout{grid-template-columns:1fr}
+  .quick-add input[list]{min-width:100%;order:1}
+  .quick-add input.qty{order:2} .quick-add input.unit{order:3} .quick-add button{order:4}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Shopping List</h1>
+    <p>One list, kept in sync between the two of us.</p>
+  </header>
+  <div class="notice" id="syncNotice"></div>
+
+  <section class="panel" id="weekPanel" style="margin-bottom:18px">
+    <div class="panel-head">
+      <h2>This week</h2>
+      <button class="ghost" id="clearWeekBtn" onclick="clearWeek()">Clear week</button>
+    </div>
+    <div id="weekRows"></div>
+  </section>
+
+  <div class="layout">
+    <section class="panel" id="shoppingPanel">
+      <div class="panel-head">
+        <h2>Shopping list</h2>
+        <button class="link-btn" onclick="openManageCommon()">Manage suggestions</button>
+      </div>
+      <form class="quick-add" onsubmit="return quickAdd(event)">
+        <input list="commonItemsList" class="name" id="qa_name" placeholder="Add an item…" autocomplete="off" required>
+        <datalist id="commonItemsList"></datalist>
+        <input type="number" class="qty" id="qa_qty" value="1" min="0" step="0.5" aria-label="Quantity">
+        <input type="text" class="unit" id="qa_unit" placeholder="unit" aria-label="Unit">
+        <button class="primary" type="submit">Add</button>
+      </form>
+
+      <div id="activeItems"></div>
+      <div class="empty" id="shoppingEmpty" style="display:none">Nothing on the list yet — add something above, or pull ingredients in from a recipe.</div>
+
+      <div class="checked-toggle" id="checkedToggleWrap" style="display:none">
+        <button class="link-btn" onclick="toggleCheckedVisible()"><span id="checkedChevron">▾</span> Checked off (<span id="checkedCount">0</span>)</button>
+        <button class="ghost" onclick="clearChecked()">Clear checked</button>
+      </div>
+      <div id="checkedItems" style="display:none"></div>
+    </section>
+
+    <aside class="panel" id="recipesPanel">
+      <div class="panel-head">
+        <h2>Recipes</h2>
+        <button class="primary" onclick="openRecipeEditor()">+ Add</button>
+      </div>
+      <div id="recipeList"></div>
+      <div class="empty" id="recipeEmpty" style="display:none">No recipes yet — add one to pull its ingredients in with a click.</div>
+    </aside>
+  </div>
+</div>
+
+<div class="modal" id="pickModal"><div class="sheet" id="pickSheet"></div></div>
+<div class="modal" id="editorModal"><div class="sheet" id="editorSheet"></div></div>
+<div class="modal" id="manageModal"><div class="sheet" id="manageSheet"></div></div>
+<div class="modal open" id="hhGate"><div class="sheet" id="hhSheet" style="max-width:440px"></div></div>
+
+<!-- Firebase (compat build — plain <script> tags, no bundler needed, so this stays one file) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBUk-UwRyaNUCQlYPpxb8fQ3BPooTQCGb0",
+  authDomain: "shopping-list-5917f.firebaseapp.com",
+  projectId: "shopping-list-5917f",
+  storageBucket: "shopping-list-5917f.firebasestorage.app",
+  messagingSenderId: "130172123831",
+  appId: "1:130172123831:web:affc24440909b587c32b32"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+</script>
+<script>
+/* ---------- storage ---------- */
+function load(key, fallback) { try { const v = JSON.parse(localStorage.getItem(key)); return v == null ? fallback : v; } catch { return fallback; } }
+function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+let shopping = load('shop.items', []);           // {id,name,qty,unit,checked}
+let recipes  = load('shop.recipes', [
+  { id:'r1', name:'Spaghetti Bolognese', notes:'', ingredients:[
+    {name:'Beef mince', qty:500, unit:'g'}, {name:'Onion', qty:1, unit:'each'},
+    {name:'Garlic', qty:2, unit:'clove'}, {name:'Crushed tomatoes', qty:400, unit:'g'},
+    {name:'Spaghetti', qty:400, unit:'g'}, {name:'Parmesan', qty:0.5, unit:'cup'}
+  ]},
+  { id:'r2', name:'Chicken Stir-Fry', notes:'', ingredients:[
+    {name:'Chicken breast', qty:500, unit:'g'}, {name:'Broccoli', qty:1, unit:'head'},
+    {name:'Carrot', qty:2, unit:'each'}, {name:'Soy sauce', qty:3, unit:'tbsp'}, {name:'Rice', qty:1.5, unit:'cup'}
+  ]}
+]);
+let commonItems = load('shop.common', ['Milk','Eggs','Bread','Butter','Onion','Garlic','Chicken breast','Rice','Coffee','Toilet paper']);
+const WEEKDAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+let weekPlan = load('shop.weekplan', {}); // { Monday: recipeId, ... } — only days with a recipe assigned are present
+
+function persist() {
+  save('shop.items', shopping); save('shop.recipes', recipes); save('shop.common', commonItems); save('shop.weekplan', weekPlan);
+  if (hhDocRef) {
+    hhDocRef.set({ items: shopping, recipes: recipes, common: commonItems, weekplan: weekPlan })
+      .catch(err => console.error('Sync save failed:', err));
+  }
+}
+function uid() { return 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+/* ---------- household sync ---------- */
+const HH_KEY = 'shop.householdCode';
+let householdCode = localStorage.getItem(HH_KEY);
+let hhDocRef = null;
+
+function genCode() {
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  const hex = Array.from(bytes, b => b.toString(16).padStart(2,'0')).join('');
+  return hex.match(/.{1,4}/g).join('-');
+}
+async function ensureSignedIn() { if (!auth.currentUser) await auth.signInAnonymously(); }
+
+// Guards against a hung network call spinning a button forever with no feedback
+// (seen on some mobile browsers) — surfaces a clear, retryable error instead.
+function withTimeout(promise, ms=15000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), ms))
+  ]);
+}
+
+function startListening(code) {
+  if (hhDocRef) return;
+  hhDocRef = db.collection('households').doc(code);
+  hhDocRef.onSnapshot(snap => {
+    const data = snap.data();
+    if (!data) return;
+    shopping = data.items || [];
+    recipes = data.recipes || [];
+    commonItems = data.common || [];
+    weekPlan = data.weekplan || {};
+    save('shop.items', shopping); save('shop.recipes', recipes); save('shop.common', commonItems); save('shop.weekplan', weekPlan);
+    renderAll();
+  }, err => console.error('Sync error:', err));
+}
+
+async function createHousehold() {
+  const btn = document.getElementById('hhCreateBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Setting up…'; }
+  try {
+    const code = genCode();
+    await withTimeout(ensureSignedIn());
+    await withTimeout(db.collection('households').doc(code).set({ items: shopping, recipes: recipes, common: commonItems, weekplan: weekPlan }));
+    localStorage.setItem(HH_KEY, code);
+    householdCode = code;
+    startListening(code);
+    renderNotice();
+    renderHHGate('created', code);
+  } catch (err) {
+    console.error(err);
+    alert("Couldn't set up sharing — check your connection and try again.");
+    if (btn) { btn.disabled = false; btn.textContent = 'Start a new shared list'; }
+  }
+}
+async function joinHousehold() {
+  const input = document.getElementById('joinCodeInput');
+  const code = input.value.trim();
+  if (!code) return;
+  const btn = document.getElementById('hhJoinBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Joining…'; }
+  try {
+    await withTimeout(ensureSignedIn());
+    const doc = await withTimeout(db.collection('households').doc(code).get());
+    if (!doc.exists) {
+      alert("Can't find a shared list with that code — check it and try again.");
+      if (btn) { btn.disabled = false; btn.textContent = 'Join with this code'; }
+      return;
+    }
+    localStorage.setItem(HH_KEY, code);
+    householdCode = code;
+    startListening(code);
+    closeModal('hhGate');
+  } catch (err) {
+    console.error(err);
+    alert("Couldn't join — check your connection and try again.");
+    if (btn) { btn.disabled = false; btn.textContent = 'Join with this code'; }
+  }
+}
+function copyHHCode(code) {
+  navigator.clipboard.writeText(code).catch(() => {});
+}
+function renderHHGate(mode, code) {
+  const sheet = document.getElementById('hhSheet');
+  if (mode === 'created') {
+    sheet.innerHTML = `
+      <div class="sheet-content">
+        <div class="sheet-head"><h2>Share this list</h2></div>
+        <p style="color:var(--muted);font-size:13px">Your shared list is ready. Send this code to your wife — she enters it the first time she opens this page on her device, and from then on you'll both see the same list.</p>
+        <div class="code-box" title="Click to copy" onclick="copyHHCode('${code}')">${code}</div>
+        <div class="sheet-actions"><button class="primary" onclick="closeModal('hhGate')">Continue</button></div>
+      </div>`;
+    return;
+  }
+  sheet.innerHTML = `
+    <div class="sheet-content">
+      <div class="sheet-head"><h2>Share this list</h2></div>
+      <p style="color:var(--muted);font-size:13px">Setting this up on your own device for the first time? Start a new shared list. Already have a code from your wife (or your other device)? Join with it instead.</p>
+      <button class="primary" id="hhCreateBtn" style="width:100%;margin-bottom:16px" onclick="createHousehold()">Start a new shared list</button>
+      <div class="field">
+        <label>Have a code already?</label>
+        <input type="text" id="joinCodeInput" placeholder="e.g. a1b2-c3d4-e5f6-a7b8-c9d0">
+      </div>
+      <div class="sheet-actions"><button class="secondary" id="hhJoinBtn" onclick="joinHousehold()">Join with this code</button></div>
+    </div>`;
+}
+function renderNotice() {
+  const el = document.getElementById('syncNotice');
+  if (householdCode) {
+    el.innerHTML = `<b>Synced.</b> This list updates live on any device using the same household code: <code onclick="copyHHCode('${householdCode}')" title="Click to copy">${householdCode}</code> — enter it on your wife's device once to connect it.`;
+  } else {
+    el.innerHTML = `<b>Not yet connected.</b> Set up sharing above to keep this list in sync with your wife's device.`;
+  }
+}
+
+/* ---------- helpers ---------- */
+function fmt(n) {
+  n = Number(n);
+  if (Number.isNaN(n)) return '';
+  return (Math.round(n*100)/100).toString();
+}
+function escapeHtml(s) { return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;'); }
+
+function allKnownNames() {
+  const set = new Set(commonItems);
+  recipes.forEach(r => r.ingredients.forEach(i => set.add(i.name)));
+  shopping.forEach(i => set.add(i.name));
+  return [...set].sort((a,b)=>a.localeCompare(b));
+}
+function renderCommonDatalist() {
+  document.getElementById('commonItemsList').innerHTML = allKnownNames().map(n=>`<option value="${escapeHtml(n)}">`).join('');
+}
+
+/* ---------- shopping list ---------- */
+function addOrMergeItem(name, qty, unit) {
+  name = name.trim();
+  if (!name) return;
+  qty = Number(qty) || 0;
+  unit = (unit || '').trim();
+  const existing = shopping.find(i => !i.checked && i.name.toLowerCase() === name.toLowerCase() && (i.unit||'').toLowerCase() === unit.toLowerCase());
+  if (existing) { existing.qty = (Number(existing.qty)||0) + qty; }
+  else { shopping.push({ id: uid(), name, qty, unit, checked:false }); }
+}
+function quickAdd(evt) {
+  evt.preventDefault();
+  const name = document.getElementById('qa_name').value;
+  const qty = document.getElementById('qa_qty').value || 1;
+  const unit = document.getElementById('qa_unit').value;
+  addOrMergeItem(name, qty, unit);
+  persist();
+  document.getElementById('qa_name').value = '';
+  document.getElementById('qa_qty').value = 1;
+  document.getElementById('qa_unit').value = '';
+  document.getElementById('qa_name').focus();
+  renderAll();
+  return false;
+}
+function changeQty(id, delta) {
+  const it = shopping.find(x=>x.id===id); if (!it) return;
+  it.qty = Math.max(0, (Number(it.qty)||0) + delta);
+  persist(); renderShopping();
+}
+function setQty(id, val) {
+  const it = shopping.find(x=>x.id===id); if (!it) return;
+  it.qty = Math.max(0, Number(val)||0);
+  persist(); renderShopping();
+}
+function setUnit(id, val) {
+  const it = shopping.find(x=>x.id===id); if (!it) return;
+  it.unit = val; persist();
+}
+function toggleItemChecked(id, val) {
+  const it = shopping.find(x=>x.id===id); if (!it) return;
+  it.checked = val;
+  if (val) it.checkedAt = Date.now(); // so the checked section can show most-recently-ticked first
+  persist(); renderShopping();
+}
+function removeItem(id) {
+  shopping = shopping.filter(x=>x.id!==id);
+  persist(); renderShopping();
+}
+function clearChecked() {
+  const n = shopping.filter(i=>i.checked).length;
+  if (!n) return;
+  if (!confirm(`Remove ${n} checked item${n===1?'':'s'} from the list?`)) return;
+  shopping = shopping.filter(i=>!i.checked);
+  persist(); renderShopping();
+}
+let checkedVisible = false;
+function toggleCheckedVisible() {
+  checkedVisible = !checkedVisible;
+  document.getElementById('checkedItems').style.display = checkedVisible ? 'block' : 'none';
+  document.getElementById('checkedChevron').textContent = checkedVisible ? '▴' : '▾';
+}
+function itemRow(i) {
+  return `<div class="item-row ${i.checked?'checked':''}">
+    <button class="remove-btn" title="Remove" onclick="removeItem('${i.id}')">✕</button>
+    <div class="qty-stepper">
+      <button type="button" onclick="changeQty('${i.id}',-1)">−</button>
+      <input type="number" value="${fmt(i.qty)}" onchange="setQty('${i.id}',this.value)">
+      <button type="button" onclick="changeQty('${i.id}',1)">+</button>
+    </div>
+    <input class="unit-input" type="text" value="${escapeHtml(i.unit||'')}" placeholder="unit" onchange="setUnit('${i.id}',this.value)">
+    <div class="item-name"><b>${escapeHtml(i.name)}</b></div>
+    <input type="checkbox" ${i.checked?'checked':''} onchange="toggleItemChecked('${i.id}',this.checked)">
+  </div>`;
+}
+/* Shop-order sorting: items are ordered to match the "suggested items" list, which you
+   arrange to match how you walk through the shop. Anything not on that list (typed fresh,
+   or pulled from a recipe under a name you haven't added as a suggestion) has no known
+   position, so it floats to the top instead of being guessed at. */
+function shopOrderIndex(name) {
+  return commonItems.findIndex(c => c.toLowerCase() === name.trim().toLowerCase());
+}
+function sortForShop(items) {
+  return items
+    .map((item, i) => ({ item, i, key: shopOrderIndex(item.name) }))
+    .sort((a,b) => (a.key - b.key) || (a.i - b.i))
+    .map(x => x.item);
+}
+function renderShopping() {
+  const active = sortForShop(shopping.filter(i=>!i.checked));
+  // Checked items sort by most-recently-ticked first, not shop order — that's the point
+  // of the section: a quick "what did I just grab" glance, not another ordered list.
+  const checked = shopping.filter(i=>i.checked).sort((a,b) => (b.checkedAt||0) - (a.checkedAt||0));
+  document.getElementById('activeItems').innerHTML = active.map(itemRow).join('');
+  document.getElementById('shoppingEmpty').style.display = shopping.length ? 'none' : 'block';
+  document.getElementById('checkedToggleWrap').style.display = checked.length ? 'flex' : 'none';
+  document.getElementById('checkedCount').textContent = checked.length;
+  document.getElementById('checkedItems').innerHTML = checked.map(itemRow).join('');
+  if (!checked.length) { document.getElementById('checkedItems').style.display = 'none'; checkedVisible = false; }
+}
+
+/* ---------- week plan ---------- */
+function clearDay(day) {
+  delete weekPlan[day];
+  persist(); renderWeekPlan();
+}
+function clearWeek() {
+  if (!Object.keys(weekPlan).length) return;
+  if (!confirm('Clear every day this week?')) return;
+  weekPlan = {};
+  persist(); renderWeekPlan();
+}
+function renderWeekPlan() {
+  const plannedDays = WEEKDAYS.filter(day => weekPlan[day]);
+  document.getElementById('clearWeekBtn').style.display = plannedDays.length ? '' : 'none';
+  if (!plannedDays.length) {
+    document.getElementById('weekRows').innerHTML = '<p class="week-empty-all">Nothing planned yet — add a recipe to a day from its ingredient popup.</p>';
+    return;
+  }
+  document.getElementById('weekRows').innerHTML = plannedDays.map(day => {
+    const r = recipes.find(x=>x.id===weekPlan[day]);
+    return `<div class="week-row">
+      <span class="week-day">${day}</span>
+      <span class="week-recipe">${r ? escapeHtml(r.name) : '<span class="week-empty">— nothing planned —</span>'}</span>
+      <button class="remove-btn" title="Remove" onclick="clearDay('${day}')">✕</button>
+    </div>`;
+  }).join('');
+}
+/* Assigning happens from a recipe's own popup (see openPicker) rather than from a dropdown
+   here, so this list stays a plain read-only rundown of the week. */
+function renderDayChooser(recipeId) {
+  return WEEKDAYS.map(d => `<button type="button" class="day-chip ${weekPlan[d]===recipeId?'active':''}" onclick="assignRecipeToDay('${recipeId}','${d}')">${d.slice(0,3)}</button>`).join('');
+}
+function assignRecipeToDay(recipeId, day) {
+  if (weekPlan[day] === recipeId) {
+    delete weekPlan[day];
+    document.getElementById('dayChooserHint').textContent = `Removed from ${day}.`;
+  } else {
+    weekPlan[day] = recipeId;
+    document.getElementById('dayChooserHint').textContent = `Added to ${day}.`;
+  }
+  persist();
+  renderWeekPlan();
+  document.getElementById('dayChooser').innerHTML = renderDayChooser(recipeId);
+}
+function toggleDayChooser() {
+  const box = document.getElementById('dayChooserBox');
+  box.style.display = box.style.display === 'none' ? 'flex' : 'none';
+}
+
+/* ---------- recipes ---------- */
+function renderRecipes() {
+  const box = document.getElementById('recipeList');
+  document.getElementById('recipeEmpty').style.display = recipes.length ? 'none' : 'block';
+  box.innerHTML = recipes.map(r => `
+    <div class="recipe-row">
+      <button class="recipe-name" onclick="openPicker('${r.id}')">${escapeHtml(r.name)}<small>${r.ingredients.length} ingredient${r.ingredients.length===1?'':'s'}</small></button>
+      <button class="row-edit" title="Edit recipe" onclick="openRecipeEditor('${r.id}')">Edit</button>
+      <button class="del" title="Delete recipe" onclick="deleteRecipe('${r.id}')">✕</button>
+    </div>`).join('');
+}
+function deleteRecipe(id) {
+  const r = recipes.find(x=>x.id===id); if (!r) return;
+  if (!confirm(`Delete "${r.name}"?`)) return;
+  recipes = recipes.filter(x=>x.id!==id);
+  WEEKDAYS.forEach(day => { if (weekPlan[day]===id) delete weekPlan[day]; });
+  persist(); renderAll();
+}
+
+/* ---------- pick-ingredients modal (add full or partial recipe to list) ---------- */
+function openPicker(id) {
+  const r = recipes.find(x=>x.id===id); if (!r) return;
+  document.getElementById('pickSheet').innerHTML = `
+    <div class="sheet-content">
+      <div class="sheet-head">
+        <div><h2>${escapeHtml(r.name)}</h2>${r.notes?`<small style="color:var(--muted);font-size:12px">${escapeHtml(r.notes)}</small>`:''}</div>
+        <button class="close" onclick="closeModal('pickModal')">✕</button>
+      </div>
+      <p style="color:var(--muted);font-size:12.5px;margin:0 0 10px">Untick anything you don't need, adjust quantities if you like, then add the rest to your list.</p>
+      <div id="pickRows">${r.ingredients.map((ing,idx)=>`
+        <div class="pick-row">
+          <input type="checkbox" checked id="pk_on_${idx}">
+          <span class="pname">${escapeHtml(ing.name)}</span>
+          <input type="number" class="pqty" id="pk_qty_${idx}" value="${fmt(ing.qty)}" step="0.5" min="0">
+          <input type="text" class="punit" id="pk_unit_${idx}" value="${escapeHtml(ing.unit||'')}">
+        </div>`).join('')}</div>
+      <div class="sheet-actions">
+        <div class="day-add">
+          <button type="button" class="secondary" onclick="toggleDayChooser()">Add to day</button>
+          <div id="dayChooserBox" class="day-chooser-box" style="display:none">
+            <div id="dayChooser" class="day-chips">${renderDayChooser(r.id)}</div>
+            <small id="dayChooserHint" class="day-hint"></small>
+          </div>
+        </div>
+        <button class="primary" onclick="addPickedToList('${r.id}')">Add to shopping list</button>
+      </div>
+    </div>`;
+  openModal('pickModal');
+}
+function addPickedToList(id) {
+  const r = recipes.find(x=>x.id===id); if (!r) return;
+  let count = 0;
+  r.ingredients.forEach((ing,idx) => {
+    const on = document.getElementById(`pk_on_${idx}`).checked;
+    if (!on) return;
+    const qty = document.getElementById(`pk_qty_${idx}`).value;
+    const unit = document.getElementById(`pk_unit_${idx}`).value;
+    addOrMergeItem(ing.name, qty, unit);
+    count++;
+  });
+  persist();
+  closeModal('pickModal');
+  renderAll();
+  flashPanel('shoppingPanel');
+}
+function flashPanel(id) {
+  const el = document.getElementById(id);
+  el.style.transition = 'box-shadow .15s';
+  el.style.boxShadow = '0 0 0 3px var(--accent)';
+  setTimeout(()=>{ el.style.boxShadow=''; }, 500);
+}
+
+/* ---------- recipe add/edit editor ---------- */
+let editorRows = [];
+function openRecipeEditor(id) {
+  const existing = id ? recipes.find(r=>r.id===id) : null;
+  editorRows = existing ? existing.ingredients.map(i=>({...i})) : [{name:'',qty:1,unit:'each'}];
+  document.getElementById('editorSheet').innerHTML = `
+    <div class="sheet-content">
+      <div class="sheet-head">
+        <h2>${existing?'Edit recipe':'Add a recipe'}</h2>
+        <button class="close" onclick="closeModal('editorModal')">✕</button>
+      </div>
+      <form class="editor" onsubmit="return saveRecipe(event,'${existing?existing.id:''}')">
+        <div class="field"><label>Name</label><input type="text" id="rf_name" value="${existing?escapeHtml(existing.name):''}" required></div>
+        <div class="field">
+          <label>Ingredients</label>
+          <div id="editorIngRows"></div>
+          <button type="button" class="add-row-btn" onclick="addEditorRow()">+ Add ingredient</button>
+        </div>
+        <div class="field"><label>Notes (optional)</label><textarea id="rf_notes">${existing?escapeHtml(existing.notes||''):''}</textarea></div>
+        <datalist id="editorNames">${allKnownNames().map(n=>`<option value="${escapeHtml(n)}">`).join('')}</datalist>
+        <div class="sheet-actions">
+          <button type="button" class="secondary" onclick="closeModal('editorModal')">Cancel</button>
+          <button type="submit" class="primary">Save recipe</button>
+        </div>
+      </form>
+    </div>`;
+  renderEditorRows();
+  openModal('editorModal');
+}
+function renderEditorRows() {
+  document.getElementById('editorIngRows').innerHTML = editorRows.map((row,idx)=>`
+    <div class="ing-row">
+      <input list="editorNames" placeholder="Ingredient" value="${escapeHtml(row.name)}" oninput="editorRows[${idx}].name=this.value">
+      <input type="number" min="0" step="0.25" placeholder="Qty" value="${row.qty}" oninput="editorRows[${idx}].qty=parseFloat(this.value)||0">
+      <input type="text" placeholder="unit" value="${escapeHtml(row.unit||'')}" oninput="editorRows[${idx}].unit=this.value">
+      <button type="button" class="remove-btn" onclick="removeEditorRow(${idx})">✕</button>
+    </div>`).join('');
+}
+function addEditorRow() { editorRows.push({name:'',qty:1,unit:'each'}); renderEditorRows(); }
+function removeEditorRow(idx) { editorRows.splice(idx,1); if(!editorRows.length) editorRows.push({name:'',qty:1,unit:'each'}); renderEditorRows(); }
+function saveRecipe(evt, existingId) {
+  evt.preventDefault();
+  const name = document.getElementById('rf_name').value.trim();
+  if (!name) return false;
+  const ingredients = editorRows.filter(r=>r.name.trim()).map(r=>({name:r.name.trim(), qty:Number(r.qty)||0, unit:(r.unit||'').trim()}));
+  const notes = document.getElementById('rf_notes').value.trim();
+  if (existingId) {
+    const r = recipes.find(x=>x.id===existingId);
+    r.name = name; r.ingredients = ingredients; r.notes = notes;
+  } else {
+    recipes.push({ id: uid(), name, ingredients, notes });
+  }
+  persist();
+  closeModal('editorModal');
+  renderAll();
+  return false;
+}
+
+/* ---------- manage common/suggested items ---------- */
+function openManageCommon() {
+  renderManageModal();
+  openModal('manageModal');
+}
+function renderManageModal() {
+  document.getElementById('manageSheet').innerHTML = `
+    <div class="sheet-content">
+      <div class="sheet-head">
+        <h2>Suggested items</h2>
+        <button class="close" onclick="closeModal('manageModal')">✕</button>
+      </div>
+      <p style="color:var(--muted);font-size:12.5px;margin:0 0 8px">Put these in the order you walk through the shop — your shopping list will follow the same order. Anything on your list that isn't in here goes to the top.</p>
+      <div id="manageRows">${commonItems.map((n,idx)=>`
+        <div class="manage-row">
+          <span class="reorder-btns">
+            <button class="del" title="Move up" onclick="moveCommon(${idx},-1)" ${idx===0?'disabled':''}>▲</button>
+            <button class="del" title="Move down" onclick="moveCommon(${idx},1)" ${idx===commonItems.length-1?'disabled':''}>▼</button>
+          </span>
+          <span class="manage-name">${escapeHtml(n)}</span>
+          <button class="del" title="Remove" onclick="removeCommon(${idx})">✕</button>
+        </div>`).join('') || '<p class="empty">No suggestions yet.</p>'}</div>
+      <div class="manage-add">
+        <input type="text" id="newCommonName" placeholder="Add a suggestion…" onkeydown="if(event.key==='Enter'){event.preventDefault();addCommon();}">
+        <button class="primary" onclick="addCommon()">Add</button>
+      </div>
+    </div>`;
+}
+function addCommon() {
+  const input = document.getElementById('newCommonName');
+  const v = input.value.trim();
+  if (!v) return;
+  if (!commonItems.some(n=>n.toLowerCase()===v.toLowerCase())) commonItems.push(v);
+  persist();
+  input.value = '';
+  renderManageModal();
+  renderCommonDatalist();
+  renderShopping();
+}
+function removeCommon(idx) {
+  commonItems.splice(idx,1);
+  persist();
+  renderManageModal();
+  renderCommonDatalist();
+  renderShopping();
+}
+function moveCommon(idx, delta) {
+  const j = idx + delta;
+  if (j < 0 || j >= commonItems.length) return;
+  [commonItems[idx], commonItems[j]] = [commonItems[j], commonItems[idx]];
+  persist();
+  renderManageModal();
+  renderCommonDatalist();
+  renderShopping();
+}
+
+/* ---------- modal plumbing ---------- */
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal').forEach(m => { if (m.id !== 'hhGate') m.addEventListener('click', e => { if (e.target===m) closeModal(m.id); }); });
+
+/* ---------- boot ---------- */
+function renderAll() { renderShopping(); renderRecipes(); renderCommonDatalist(); renderWeekPlan(); renderNotice(); }
+
+if (householdCode) {
+  closeModal('hhGate');
+  withTimeout(ensureSignedIn(), 20000).then(() => startListening(householdCode)).catch(err => console.error('Sign-in failed:', err));
+} else {
+  renderHHGate('choose');
+}
+renderAll();
+</script>
+</body>
+</html>
